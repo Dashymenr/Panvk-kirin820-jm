@@ -41,6 +41,14 @@ pre-release). Latest: **test7**.
   time per frame, FourFectVK ~160 ms (vertex/tiler ~3x, fragment ~4x); what
   has been ruled out so far:
   [`evidence/perf/tr-menu-2026-10-10/`](evidence/perf/tr-menu-2026-10-10/).
+  Most of the fragment cost there is clip-distance emulation: the game writes
+  ClipDistance in most vertex shaders, the system driver has no clip distances
+  (the game runs without them through the Winlator wrapper), FourFectVK
+  emulates them with a fragment-shader discard. `PANVK_V9_NO_CLIP_CULL=1`
+  stops reporting the feature, as on the system driver: 8.4-9.8 fps instead
+  of 5.5-6.4 in the menu, but the game's clipping planes are ignored. It is a
+  per-game option, the default stays on
+  ([`clip_distance.txt`](evidence/perf/tr-menu-2026-10-10/clip_distance.txt)).
   Other Valhall GPUs (G68, G57 MC3) are untested.
 
 **Thanks to hafiz** for the upstream rebase, the chained and asynchronous

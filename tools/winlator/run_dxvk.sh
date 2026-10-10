@@ -14,17 +14,18 @@ V=${1:?dxvk version}; DRV=${2:?drvdir}; EXE=${3:?exe}; shift 3
 D=/tmp/dxvk/$V/system32
 [ -f "$D/d3d11.dll" ] || { echo "no DXVK $V in $D"; exit 2; }
 S32=$W/wpfx/drive_c/windows/system32
-for dll in d3d11 dxgi d3d9 d3d10core; do [ -f "$D/$dll.dll" ] && cp -f "$D/$dll.dll" "$S32/$dll.dll"; done
-# ICD json pointing at the Winlator wrapper (absolute path)
-cat > $W/wrapper_icd.json <<EOF
+for dll in d3d11 dxgi d3d9 d3d10core d3d8; do [ -f "$D/$dll.dll" ] && cp -f "$D/$dll.dll" "$S32/$dll.dll"; done
+# ICD json pointing at the Winlator wrapper (absolute path; WRAP=<so> to use another one)
+ICDJ=$W/wrapper_icd${WRAP:+_alt}.json
+cat > $ICDJ <<EOF
 { "file_format_version": "1.0.0",
-  "ICD": { "library_path": "$F/libvulkan_wrapper.so", "api_version": "1.3.303" } }
+  "ICD": { "library_path": "${WRAP:-$F/libvulkan_wrapper.so}", "api_version": "1.3.303" } }
 EOF
 exec env -u PAN_I_WANT_A_BROKEN_VULKAN_DRIVER \
   WINEPREFIX=$W/wpfx WINEDEBUG=${WINEDEBUG:--all} DISPLAY=:0 \
   LD_LIBRARY_PATH=$R/lib:$F \
-  VK_ICD_FILENAMES=$W/wrapper_icd.json \
+  VK_ICD_FILENAMES=$ICDJ \
   ADRENOTOOLS_DRIVER_PATH=$DRV/ ADRENOTOOLS_HOOKS_PATH=$F/ ADRENOTOOLS_DRIVER_NAME=libvulkan_panfrost.so \
-  WINEDLLOVERRIDES="d3d11,dxgi,d3d9,d3d10core=n" \
+  WINEDLLOVERRIDES="d3d11,dxgi,d3d9,d3d10core,d3d8=n" \
   DXVK_LOG_LEVEL=${DXVK_LOG_LEVEL:-info} DXVK_LOG_PATH=${DXVK_LOG_PATH:-$W} \
   "$@" $O/bin/wine "$EXE" ${EXE_ARGS}

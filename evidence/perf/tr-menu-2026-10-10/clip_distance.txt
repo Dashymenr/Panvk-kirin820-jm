@@ -1,0 +1,64 @@
+Clip distances in the Tomb Raider menu (2026-10-10, 848x480 Low, DXVK 1.7.2)
+
+Most of FourFectVK's fragment cost in this menu comes from emulating
+ClipDistance. The system driver doesn't support it at all.
+
+1. The game writes clip distances
+   DXVK_SHADER_DUMP_PATH, the whole run up to the menu: 1127 vertex shaders,
+   912 of them write ClipDistance (1 value), 0 write CullDistance. There are no
+   GS/HS/DS. A typical one (VS_00198f25...):
+     o2 = dot(r1, cb2[21]);  ClipDistance[0] = o2;
+   i.e. one clipping plane from a constant buffer.
+
+2. The system driver has no clip distances
+   vulkaninfo on the system Mali driver directly:
+     shaderClipDistance = false, shaderCullDistance = false
+   The same driver through the Winlator wrapper (the stack the game uses):
+     shaderClipDistance = true, shaderCullDistance = true
+   So the wrapper reports the feature anyway. Its fragment shaders in the
+   snapshot (snapblob, main pass) have DISCARD in 5 of 41. Our reading is that
+   the wrapper drops the clip-distance writes for drivers without the feature
+   (the wrapper has a WRAPPER_NO_REMOVE_CLIP_DISTANCE option). We haven't
+   checked this in the wrapper's code.
+
+3. FourFectVK emulates them
+   FourFectVK reports the feature (v9 patch 0066) and emulates it in the
+   fragment shader: discard where the interpolated distance is negative
+   (panvk_v9_lower_fs_clip_cull).
+   In the main pass of our snapshot (snappvk, 778 draws):
+     - all 84 unique fragment shaders have a DISCARD;
+     - shader_modifies_coverage is set on 778/778 draws;
+     - forward pixel kill is allowed on 0/778 draws.
+   Depth-only draws also have to run a fragment shader now.
+
+4. Cost (hwcnt/, per frame)
+   compare_no_clip_cull.txt: switches off vs PANVK_V9_NO_CLIP_CULL=1, which
+   stops reporting the feature (the wrapper then handles it as on the system
+   driver):
+     GPU_ACTIVE 197M -> 108M, JS0 (fragment) 129M -> 37M,
+     FRAG_WARPS 6.5M -> 1.5M, FRAG_QUADS_RAST 26.3M -> 8.9M,
+     FRAG_QUADS_EZS_KILL 1.0M -> 2.9M, VARY_INSTR 42.6M -> 6.7M.
+   Frame rate (HUD, OCR):
+     switches off            5.5-6.4 fps
+     NO_CLIP_CULL            8.4-9.8 fps (one sample read as 16.6, an OCR error)
+     NO_CLIP_CULL + 3 switches (NO_TILER_CHAIN, BC_TILED, LATE_VECTORIZE)
+                             8.8-10.2 fps
+     system driver           12.3-14.7 fps
+
+5. Trade-off
+   With PANVK_V9_NO_CLIP_CULL=1, the game's clipping plane is ignored. This
+   matches what the system driver does through the wrapper. Geometry that the
+   plane should cut away is drawn (e.g. reflections showing what lies under
+   the water). In the menu we couldn't tell a difference: the scene is
+   animated, and the difference between two images is as large as between two
+   runs of the same setting.
+   The default stays on (correct). The switch is a per-game option.
+
+6. What remains vs the system driver (compare_system_vs_no_clip_cull_3switches.txt)
+   GPU_ACTIVE 41M vs 100M per frame.
+   Same triangles, position/varying shading requests and vertex warps
+   (ratios 0.98-1.00).
+   The vertex/tiler slot is 22M vs 59M: each vertex warp takes 2.6x the
+   cycles. Per frame, ours vs the system driver:
+     LS_MEM_READ_SHORT x3.0, LS_MEM_WRITE_SHORT x3.5, ATTR_INSTR x2.7
+   Next work: vertex shader code (UBO loads, see isa/).

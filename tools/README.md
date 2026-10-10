@@ -47,10 +47,10 @@ Build with Termux clang; the binaries are not kept here.
 
 | File | Purpose |
 |---|---|
-| `iolog.c` | `LD_PRELOAD` logger for `/dev/mali0` (kbase `JOB_SUBMIT` atoms, completion events) and `/proc/ged` calls. Preload it on the bionic game process only, from a path under `$HOME` (the linker refuses `/tmp`). `IOLOG_SNAP=<file>` + `IOLOG_SNAP_AT=<s>` also saves one submit's job chains and the readable GPU memory |
+| `iolog.c` | `LD_PRELOAD` logger for `/dev/mali0` (kbase `JOB_SUBMIT` atoms, completion events) and `/proc/ged` calls. Preload it on the bionic game process only, from a path under `$HOME` (the linker refuses `/tmp`). `IOLOG_SNAP=<file>` + `IOLOG_SNAP_AT=<s>` also saves one submit's job chains and the readable GPU memory. Snapshot triggers: `IOLOG_SNAP_MIN_JOBS=<n>` (chains in the submit, default 6), `IOLOG_SNAP_MIN_CHAIN=<n>` (a chain with at least n jobs), `IOLOG_SNAP_REQ=<hex>` (+ `IOLOG_SNAP_ONEDEP=1`), `IOLOG_SNAP_PREV=<k>` (also the k previous submits; those may have run already). `IOLOG_CHAINLEN=1` logs the job count of every chain |
 | `blobdeps.py` | atom kinds, rates and dependencies of a trace |
 | `passtime.py` | GPU time per pass, vertex/tiler vs fragment, from the completion events |
-| `snapdec.c`, `build_snapdec.sh`, `snapdec.flags` | decode a snapshot with pandecode (links the host build's static libs) |
+| `snapdec.c`, `build_snapdec.sh`, `snapdec.flags` | decode a snapshot with pandecode (links the host build's static libs); `snapdec <snap> 90930000` for Mali-G57 (the 64-bit GPU id, a short `9093` decodes with the wrong descriptor layouts) |
 | `shaderstats.py` | per stage: shaders, registers and instruction mix of the draws in a decoded snapshot |
 | `sdbstats.py` | aggregate `BIFROST_MESA_DEBUG=shaderdb` lines from a game log |
 | `gedprobe.c` | read-only MediaTek GED query (GPU clock and load), no root needed |

@@ -139,6 +139,8 @@ struct ged_pkg {
    int32_t out_size;
 };
 
+static unsigned chain_jobs(uint64_t jc);
+
 static void
 log_submit(int fd, const struct job_submit *s, int ret, uint64_t t)
 {
@@ -156,6 +158,9 @@ log_submit(int fd, const struct job_submit *s, int ret, uint64_t t)
       fprintf(f, " A n=%u req=0x%x dep=%u:%u,%u:%u prio=%u slot=%u jc=0x%llx",
               a[40], req, a[36], a[37], a[38], a[39], a[41], a[43],
               (unsigned long long)jc);
+      /* IOLOG_CHAINLEN=1: number of jobs in the chain */
+      if (getenv("IOLOG_CHAINLEN") && jc && !(req & 0x200))
+         fprintf(f, " jobs=%u", chain_jobs(jc));
       if (s->stride >= 64) {
          fprintf(f, " tail=");
          hexdump(f, a + 48, 16);
@@ -169,7 +174,7 @@ log_submit(int fd, const struct job_submit *s, int ret, uint64_t t)
  * Records: "JCHN" u32 n, n x {u64 jc, u32 core_req, u32 pad}; then
  * "MMAP" u32 0, u64 va, u64 size, data. Copied before the submit that
  * triggers it, so the job descriptors are as the CPU wrote them. */
-#define SNAP_RING 8
+#define SNAP_RING 64
 static uint64_t snap_jc[SNAP_RING][64];
 static uint32_t snap_req[SNAP_RING][64];
 static unsigned snap_n[SNAP_RING], snap_pos;
@@ -191,6 +196,36 @@ snap_handler(int sig, siginfo_t *si, void *uc)
       o->sa_handler(sig);
 }
 
+/* Number of jobs in the chain at jc (GPU VA = CPU VA for SAME_VA memory);
+ * guarded reads, 0 if the header is not readable. */
+static unsigned
+chain_jobs(uint64_t jc)
+{
+   struct sigaction sa = {0}, o_segv, o_bus;
+   sa.sa_sigaction = snap_handler;
+   sa.sa_flags = SA_SIGINFO;
+   sigemptyset(&sa.sa_mask);
+   sigaction(SIGSEGV, &sa, &o_segv);
+   sigaction(SIGBUS, &sa, &o_bus);
+   old_segv = o_segv;
+   old_bus = o_bus;
+   volatile unsigned n = 0;
+   volatile uint64_t at = jc;
+   snap_in_copy = 1;
+   if (sigsetjmp(snap_jmp, 1) == 0) {
+      while (at && n < 8192) {
+         uint64_t next;
+         memcpy(&next, (const void *)(uintptr_t)(at + 24), 8);
+         n++;
+         at = next;
+      }
+   }
+   snap_in_copy = 0;
+   sigaction(SIGSEGV, &o_segv, NULL);
+   sigaction(SIGBUS, &o_bus, NULL);
+   return n;
+}
+
 static void
 snap_take(void)
 {
@@ -202,12 +237,20 @@ snap_take(void)
       if (f) fclose(f);
       return;
    }
-   uint32_t n = snap_n[(snap_pos + SNAP_RING - 1) % SNAP_RING];
+   /* By default only the submit being made: the GPU has not run it, so
+    * nothing in its descriptors has been reused or written back yet.
+    * IOLOG_SNAP_PREV=<k> also saves the chains of the k submits before it
+    * (drivers that submit one chain per ioctl); those may have run. */
+   const char *pv = getenv("IOLOG_SNAP_PREV");
+   unsigned prev = pv ? (unsigned)atoi(pv) : 0;
+   if (prev > SNAP_RING - 1)
+      prev = SNAP_RING - 1;
+   uint32_t n = 0;
+   for (unsigned k = SNAP_RING - 1 - prev; k < SNAP_RING; k++)
+      n += snap_n[(snap_pos + k) % SNAP_RING];
    fwrite("JCHN", 4, 1, f);
    fwrite(&n, 4, 1, f);
-   /* Only the submit being made: the GPU has not run it, so nothing in
-    * its descriptors has been reused or written back yet. */
-   for (unsigned k = SNAP_RING - 1; k < SNAP_RING; k++) {
+   for (unsigned k = SNAP_RING - 1 - prev; k < SNAP_RING; k++) {
       unsigned r = (snap_pos + k) % SNAP_RING;
       for (unsigned i = 0; i < snap_n[r]; i++) {
          uint32_t pad = 0;
@@ -279,16 +322,35 @@ snap_note_submit(const struct job_submit *s, uint64_t t)
       first_submit_ns = t;
    const uint8_t *a = (const uint8_t *)(uintptr_t)s->addr;
    unsigned r = snap_pos, n = 0;
+   /* IOLOG_SNAP_REQ=<hex core_req>: only a submit carrying an atom with
+    * that core_req triggers; IOLOG_SNAP_ONEDEP=1: that atom must also have
+    * its second pre-dependency empty. */
+   const char *want_s = getenv("IOLOG_SNAP_REQ");
+   uint32_t want = want_s ? (uint32_t)strtoul(want_s, NULL, 16) : 0;
+   int onedep = getenv("IOLOG_SNAP_ONEDEP") != NULL;
+   int trig = !want_s;
+   const char *mc = getenv("IOLOG_SNAP_MIN_CHAIN");
+   int chain_ok = !mc;
    for (uint32_t i = 0; i < s->nr_atoms && n < 64; i++, a += s->stride) {
       uint64_t jc;
       uint32_t req;
+      uint8_t dep1;
       if (s->stride == 72) {
          memcpy(&jc, a + 8, 8);
          memcpy(&req, a + 52, 4);
+         dep1 = a[46];
       } else {
          memcpy(&jc, a, 8);
          memcpy(&req, a + 44, 4);
+         dep1 = a[38];
       }
+      if (want_s && req == want && (!onedep || dep1 == 0))
+         trig = 1;
+      /* IOLOG_SNAP_MIN_CHAIN=<n>: some chain of the submit has at least
+       * n jobs */
+      if (mc && jc && !(req & 0x200) && !chain_ok &&
+          chain_jobs(jc) >= (unsigned)atoi(mc))
+         chain_ok = 1;
       if (!jc || (req & 0x200))
          continue; /* soft jobs and dependency-only atoms */
       snap_jc[r][n] = jc;
@@ -301,7 +363,8 @@ snap_note_submit(const struct job_submit *s, uint64_t t)
    /* A submit that carries real work: at least IOLOG_SNAP_MIN_JOBS chains
     * (default 6). */
    const char *mj = getenv("IOLOG_SNAP_MIN_JOBS");
-   if ((t - first_submit_ns) / 1e9 >= at_s && n >= (mj ? atoi(mj) : 6)) {
+   if ((t - first_submit_ns) / 1e9 >= at_s && n >= (mj ? atoi(mj) : 6) &&
+       trig && chain_ok) {
       snap_done = 1;
       snap_take();
    }

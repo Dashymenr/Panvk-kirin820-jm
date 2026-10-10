@@ -16,3 +16,39 @@ FPS: 5.6 GPU: 100%
 FPS: 5.7 GPU: 100% 
 FPS: 5.5 GPU: 100% 
 FPS: 5.5 GPU: 100% 
+## no tiler chain
+FPS: 5.6 GPU: 166% 
+FPS: 6.3 GPU: 166% 
+FPS: 6.6 GPU: 166% 
+Frei 6.3 “GPU: 100% 
+FPS: 6.5 GPU: 166% 
+FPS: 6.3 GPU: 166% 
+FPS: 6.4 GPU: 166% 
+FPS: 6.2 GPU: 100% 
+## 3 switches
+FPS: 6.2 GPU: 100% 
+FPS: 6. 7¢ GPU: 100% 
+FPS: 6.7 GPU: 100% 
+FPS: 7.86 GPU: 166% 
+FPS: 6.9 GPU: 100% 
+FPS: 6.8 GPU: 100% 
+FPS: 6.8 GPU: 100% 
+FPS: 6.8 GPU: 100% 
+## PANVK_V9_NO_CLIP_CULL=1
+FPS: 16.6 GPU: 166% 
+FPS: 9.6 GPU: 166% 
+FPS: 9.8 GPU: 166% 
+FPS: 8.4 GPU: 166% 
+FPS: 9.6 GPU: 166% 
+FPS: 9.4 GPU: 166% 
+FPS: 9.3 GPU: 166% 
+FPS: 9.2 GPU: 100% 
+## PANVK_V9_NO_CLIP_CULL=1 + 3 switches
+FPS: 8.8 GPU: 95% 
+FPS: 8.8 GPU: 100% 
+FPS: 9.6 GPU: 100% 
+FPS: 9.1 GPU: 100% 
+FPS: 9.1 GPU: 100% 
+FPS: 10.2 GPU: 98% 
+FPS: 9.8 GPU: 100% 
+FPS: 9. 8 GPU: 100% 

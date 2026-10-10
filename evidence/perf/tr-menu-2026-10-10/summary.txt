@@ -68,3 +68,12 @@ Object code (isa/, from the two snapshots, 10 shader pairs matched by structure)
   instructions 1004 -> 1583 (+58%), UBO loads (LD_PKA) 77 -> 276; the system
   driver's fragment shaders in the pairs have no UBO loads at all (constants
   pushed to uniform registers), ours 9-52 each.
+
+Clip distances (clip_distance.txt): 912 of 1127 vertex shaders of the game
+write ClipDistance. The system driver has no shaderClipDistance; through the
+Winlator wrapper the game runs without them. FourFectVK emulates them in the
+fragment shader (discard), which turns off forward pixel kill and makes every
+draw shade. PANVK_V9_NO_CLIP_CULL=1 (feature not reported, same as on the
+system driver): 8.4-9.8 fps instead of 5.5-6.4; with the three switches above
+8.8-10.2. The game's clipping plane is then ignored. Remaining gap to the
+system driver (12.3-14.7): vertex shading, 2.6x the cycles per vertex warp.
