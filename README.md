@@ -38,8 +38,11 @@ pre-release). Latest: **test7**.
 * **Open:** frame rate in heavy games (Tomb Raider about 10 fps at medium
   settings, GPU-bound); test7 adds `PANVK_FRAME_PROF` to measure where the
   time goes. In the Tomb Raider menu the system driver needs ~50 ms of GPU
-  time per frame, FourFectVK ~160 ms (vertex/tiler ~3x, fragment ~4x); what
-  has been ruled out so far:
+  time per frame, FourFectVK ~160 ms (vertex/tiler ~3x, fragment ~4x), but the
+  system driver draws that menu mostly black
+  ([screenshots](evidence/perf/tr-menu-2026-10-10/images/)), so it renders less
+  than FourFectVK and isn't a like-for-like target; what has been ruled out so
+  far:
   [`evidence/perf/tr-menu-2026-10-10/`](evidence/perf/tr-menu-2026-10-10/).
   Most of the fragment cost there is clip-distance emulation: the game writes
   ClipDistance in most vertex shaders, the system driver has no clip distances

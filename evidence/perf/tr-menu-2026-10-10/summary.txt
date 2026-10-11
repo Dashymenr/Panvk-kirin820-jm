@@ -77,3 +77,12 @@ draw shade. PANVK_V9_NO_CLIP_CULL=1 (feature not reported, same as on the
 system driver): 8.4-9.8 fps instead of 5.5-6.4; with the three switches above
 8.8-10.2. The game's clipping plane is then ignored. Remaining gap to the
 system driver (12.3-14.7): vertex shading, 2.6x the cycles per vertex warp.
+
+Corrections after looking at the screenshots (images/README.txt):
+- PANVK_BC_TILED=1 corrupts the menu. Every result that includes it is
+  invalid: the "3 switches" run (6.2-6.9 fps, -27% fragment cycles, -61%
+  texture beats) and "NO_CLIP_CULL + 3 switches" (8.8-10.2). Without it,
+  NO_TILER_CHAIN and LATE_VECTORIZE render correctly.
+- The system driver draws the menu mostly black, in both of its runs. Its
+  12-14 fps and ~41M cycles per frame cover less rendering than FourFectVK's,
+  so it is not a like-for-like target.

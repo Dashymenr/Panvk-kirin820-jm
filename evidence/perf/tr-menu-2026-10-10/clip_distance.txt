@@ -62,3 +62,9 @@ ClipDistance. The system driver doesn't support it at all.
    cycles. Per frame, ours vs the system driver:
      LS_MEM_READ_SHORT x3.0, LS_MEM_WRITE_SHORT x3.5, ATTR_INSTR x2.7
    Next work: vertex shader code (UBO loads, see isa/).
+
+7. Corrections (images/README.txt)
+   The "NO_CLIP_CULL + 3 switches" number (8.8-10.2) came from a corrupted
+   picture (PANVK_BC_TILED). It is not a valid result.
+   The system driver draws this menu mostly black, so its frame rate is not a
+   like-for-like target.
