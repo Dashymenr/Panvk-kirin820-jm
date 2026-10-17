@@ -1,0 +1,64 @@
+UBO push to FAU, and clip distances off by default for Tomb Raider
+(patches-upstream/0004, 2026-10-11/12, TR menu 848x480 Low, DXVK 1.7.2)
+
+1. PANVK_UBO_PUSH=<words> (v9, off by default; 1 means 32 words, max 64)
+   Compile side (panvk_vX_shader.c, panvk_v9_push_ubo):
+     - in VS and FS, 32-bit UBO loads with a constant descriptor and a
+       constant offset become reads from the FAU (load_push_constant);
+     - the words go after the sysvals and push constants (fau.ubo_push_start);
+     - up to the budget, identical words are shared;
+     - the budget is part of the shader cache key when it is on.
+   Run time:
+     - each draw records one entry per word (panvk_vX_cmd_push_constant.c):
+       destination = the word in the draw's FAU buffer; source = the dynamic
+       buffer's address (resolved when the draw is recorded), or the BUFFER
+       descriptor in the set (read when the batch runs);
+     - one compute job per batch, panlib_ubo_gather (libpan_copy.cl), queued
+       before the first draw that needs it, copies the words when the GPU runs
+       the batch. Out-of-range or unbound words read as 0;
+     - the entry list is uploaded when the batch is closed; draws depend on
+       the gather job (dependency 1, or a barrier when dependency 1 is used).
+   So the values are the buffer contents at execution time, as Vulkan
+   requires; nothing is read on the CPU.
+   Not pushed: other bit sizes, dynamic offsets, other stages.
+
+   CTS with PANVK_UBO_PUSH=1:
+     - runs/l_ubovec (1880 UBO/robustness cases): 1452 pass, 428 not supported;
+     - dEQP-VK.ubo.single_basic_type.scalar.bvec4.both: LD_PKA 16 -> 0, Pass;
+     - full regression, 7127 cases, vs rK20: lost 0, gain 0
+       (regression_rU1_vs_rK20.txt).
+
+2. pan_disable_clip_cull_distance (driconf, default false)
+   With it on, shaderClipDistance/shaderCullDistance aren't reported and the
+   v9 clip/cull lowering doesn't run (same effect as PANVK_V9_NO_CLIP_CULL=1).
+   00-panvk-defaults.conf turns it on for Tomb Raider (executable
+   TombRaider.exe, or Vulkan application name TombRaider.exe). It is compiled
+   into the Android build (static driconf). The environment overrides it:
+   pan_disable_clip_cull_distance=false keeps clip distances.
+   The game's clipping planes are then ignored, as on the Arm driver through
+   the Winlator wrapper (clip_distance.txt).
+   Same Android build, no other environment:
+     default (option on through the game entry)   8.1-9.7 fps
+     pan_disable_clip_cull_distance=false          4.7-5.8 fps
+
+3. Tomb Raider menu, frame rate (HUD OCR) and GPU cycles per frame. Every
+   picture was checked (images/).
+   Build drvM13 (2026-10-11):
+     switches off                                  5.5-6.4 fps  197M
+     PANVK_UBO_PUSH=1                              7.4-8.6      137M
+     PANVK_V9_NO_CLIP_CULL=1                       8.4-9.8      108M
+     PANVK_UBO_PUSH=1 PANVK_V9_NO_CLIP_CULL=1      11.2-12.0     84M
+       (in a later session after a reboot: 9.6-11.8)
+   Build drvM14 (0004, 2026-10-12):
+     no environment (Tomb Raider entry)            8.1-9.7
+     PANVK_UBO_PUSH=1                              9.5-10.9
+   The OCR sometimes reads 10.x as 16.x; those samples are left out.
+   PANVK_UBO_PUSH=1 also halves the 64-register warps. With clip distances off
+   in both runs, WARP_REG_SIZE_64 goes from 0.34M to 0.16M per frame
+   (hwcnt/compare_ubo_push_no_clip_cull.txt).
+
+4. Not adopted
+   PANVK_BC_TILED: it corrupts the picture, so it was removed from the tree.
+   Depth cull: the Arm driver clears Low/High Depth Cull on its draws.
+   FourFectVK sets them from depthClipEnable, as the Vulkan spec requires,
+   and keeps doing so.

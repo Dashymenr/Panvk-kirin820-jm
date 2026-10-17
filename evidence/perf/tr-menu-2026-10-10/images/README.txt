@@ -19,3 +19,13 @@ fourfectvk_no_clip_cull_3switches_BROKEN_bc_tiled.jpg
     (probably tiled BC images that are also accessed through uncompressed
     views; not verified). The
     fps measured with it (6.2-6.9, 8.8-10.2) are not valid results.
+
+fourfectvk_ubo_push.jpg, fourfectvk_ubo_push_no_clip_cull.jpg
+    PANVK_UBO_PUSH=1, without and with PANVK_V9_NO_CLIP_CULL=1. Correct.
+
+fourfectvk_tomb_raider_default_2026-10-12.jpg,
+fourfectvk_tomb_raider_clip_forced_on_2026-10-12.jpg,
+fourfectvk_tomb_raider_default_ubo_push_2026-10-12.jpg
+    0004 build: no environment (clip distances off through the Tomb Raider
+    driconf entry), pan_disable_clip_cull_distance=false, and PANVK_UBO_PUSH=1.
+    Correct.

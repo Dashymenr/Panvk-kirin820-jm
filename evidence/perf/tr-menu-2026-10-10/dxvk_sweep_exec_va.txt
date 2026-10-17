@@ -1,0 +1,51 @@
+DXVK version sweep and the kbase EXEC_VA bug, 2026-10-12
+========================================================
+
+Tomb Raider (2013) main menu, 848x480, Low, Hangover Wine 11.16 + FEX
+arm64ec, Winlator wrapper, FourFectVK. "fps" is the range of 8 DXVK HUD
+readings (OCR) about 10 s after the menu shows. alloc_fail counts
+"MEM_ALLOC failed" lines in the driver log, pipe_fail counts DXVK
+"Failed to compile/create" pipeline errors.
+
+drvM14 = 0001-0003 + the UBO push / clip-cull work (4 MiB EXEC_VA zone)
+drvM15 = drvM14 + the EXEC_VA fix in 0004 (256 MiB zone)
+
+DXVK                                          fps         alloc_fail  pipe_fail  crash
+1.7.2 (reference, drvM14)                     6.4-9.7     0           0          0
+1.10.3                                        6.4-8.6     0           0          0
+1.11.0-sarek                                  6.3-9.3     0           0          0
+1.12.0-sarek                                  3.8-8.8     0           0          0
+1.10.9-sarek-async                            5.5-6.5     0           0          0
+1.11.0-sarek-async                            8.1-9.6     0           0          0
+2.3.1 MSVC build (drvM14)                     ---         0           0          1
+2.3.1 MSVC build (drvM15)                     ---         0           0          1
+2.3.1-gplasync, 4 MiB exec (drvM14)           11.9-14.5   3554        1735       0
+2.3.1-gplasync (drvM15)                       5.8-8.5     0           0          0
+2.7.1-gplasync, 4 MiB exec (drvM14)           7.8-15.7    1568        1653       0
+2.7.1-gplasync, 4 MiB exec control (drvM15)   11.9-13.5   2931        1665       0
+2.7.1-gplasync async (drvM15)                 6.5-8.6     0           0          0
+2.7.1-gplasync sync (drvM15)                  7.4-8.6     0           0          0
+
+(the control row runs drvM15 with PANVK_KBASE_EXEC_VA_MB=4)
+
+EXEC_VA bug
+-----------
+kbase_kmod.c set up the executable VA zone (EXEC_VA, where shader binaries
+live) with 1024 pages = 4 MiB. DXVK 2.x with graphics pipeline libraries
+compiles far more shader variants than 1.x and ran out of it:
+
+  MEM_ALLOC failed: Out of memory (4 pages, flags 0x1817, executable)
+
+thousands of times per run, ~1700 pipelines failed, the picture was broken,
+and the frame rate looked higher (12-16 fps) only because most draws were
+missing. The fix (0004) asks for 256 MiB, keeps the 4 MiB zone if the kernel
+refuses, and PANVK_KBASE_EXEC_VA_MB overrides the size. With it every DXVK
+2.x run had 0 allocation failures, 0 failed pipelines and a correct picture
+(checked on screenshots).
+
+2.3.1 MSVC build: the crash is a null read inside the game's own
+msvcp140.dll (14.28), the same with and without the fix. With Wine's builtin
+msvcp140 the game doesn't start. Not a driver problem.
+
+1.12.0-sarek and 1.10.9-sarek-async: GPU load was 59-66% during the low
+readings; these two need a rerun before drawing conclusions.

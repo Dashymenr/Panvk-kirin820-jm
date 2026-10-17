@@ -13,9 +13,9 @@ Most public PanVK testing/builds so far target **CSF** chips (G610/G615/G710/G72
 ## Status (2026-10-10): FourFectVK 0.1.0 test builds, new upstream base
 
 **Builds for Winlator: [`docs/test-builds.md`](docs/test-builds.md)**
-(test1-test7, what each one changed, results, downloads in the
+(test1-test8, what each one changed, results, downloads in the
 [`fourfectvk-g57-v0.1.0-tests`](https://github.com/Noysz/panvk-g99-jm/releases/tag/fourfectvk-g57-v0.1.0-tests)
-pre-release). Latest: **test7**.
+pre-release). Latest: **test8**.
 
 * **New base since test6.** FourFectVK now builds on upstream Mesa
   `feeadb5f` (26.3.0-devel) through **hafiz's rebase** of this project, with
@@ -49,10 +49,31 @@ pre-release). Latest: **test7**.
   (the game runs without them through the Winlator wrapper), FourFectVK
   emulates them with a fragment-shader discard. `PANVK_V9_NO_CLIP_CULL=1`
   stops reporting the feature, as on the system driver: 8.4-9.8 fps instead
-  of 5.5-6.4 in the menu, but the game's clipping planes are ignored. It is a
-  per-game option, the default stays on
+  of 5.5-6.4 in the menu, but the game's clipping planes are ignored. Since
+  [`0004`](patches-upstream/) this is on by default for Tomb Raider only (driconf
+  `pan_disable_clip_cull_distance`; set it to `false` in the environment to keep
+  clip distances), every other application keeps them
   ([`clip_distance.txt`](evidence/perf/tr-menu-2026-10-10/clip_distance.txt)).
+  `PANVK_UBO_PUSH=1` (experimental, off by default) moves constant UBO words
+  into uniform registers: 9.5-12 fps in that menu together with the Tomb Raider
+  default, CTS regression lost 0
+  ([`ubo_push.txt`](evidence/perf/tr-menu-2026-10-10/ubo_push.txt)).
   Other Valhall GPUs (G68, G57 MC3) are untested.
+* **DXVK 2.x shader memory (0004).** The kbase executable VA zone for shader
+  code was 4 MiB; DXVK 2.x with graphics pipeline libraries filled it
+  (thousands of `MEM_ALLOC failed ... executable`, ~1700 failed pipelines,
+  broken picture, a frame rate that only looked higher). Now 256 MiB, 0
+  failures in every DXVK 2.x run
+  ([`dxvk_sweep_exec_va.txt`](evidence/perf/tr-menu-2026-10-10/dxvk_sweep_exec_va.txt)).
+* **Naruto Shippuden: Ultimate Ninja Storm 2 (0005).** The game polls D3D11
+  timestamp queries before its first frame; v9 had no timestamp writes, so it
+  hung on a white or black window. `vkCmdWriteTimestamp2` now writes the GPU
+  timestamp (`PANVK_V9_TIMESTAMP=1` / driconf `pan_v9_timestamps`, on by
+  default for `NSUNS2.exe` only): the intro plays at its 30 fps on Wine and
+  Proton 10. In Bannerlator, the BCn layer's "transcode to ASTC" option asks
+  for `shaderFloat16`, which v9 doesn't report, so device creation fails;
+  turn that option off
+  ([`evidence/games/naruto-storm2-2026-10-13/`](evidence/games/naruto-storm2-2026-10-13/)).
 
 **Thanks to hafiz** for the upstream rebase, the chained and asynchronous
 kbase submission with real kernel fences, forward pixel kill on v9 and the

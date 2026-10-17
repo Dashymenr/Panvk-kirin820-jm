@@ -60,7 +60,19 @@ Build with Termux clang; the binaries are not kept here.
 `run_dxvk.sh` on GE-Proton 11.0-7.1 arm64ec (The412Banner's bionic build).
 The script header lists the one-time prefix setup and the three things it
 needs on Termux:X11 (the `noshm` preload, `winmm=n,b` for Tomb Raider, a
-virtual desktop).
+virtual desktop). `GE=<extracted wcp>` and `PFX=<prefix>` select another
+Proton build (Proton 10.0-4 arm64ec was set up the same way), `WRAP=<so>`
+another `libvulkan_wrapper.so`.
+
+## fex/gstk.py, fex/natbt.py
+
+Where a hung game spins, without a working debugger (gdb under proot reads
+registers but not memory):
+
+| File | Purpose |
+|---|---|
+| `fex/gstk.py` | x86 call stack of one thread: guest RSP from the host registers (x23 in FEX JIT code, sp in arm64ec code), stack read from `/proc/<pid>/mem`, PE images found by their headers. `auto` picks the register, `all` tries every one |
+| `fex/natbt.py` | sample a thread a few times and walk the native frame-pointer chain (lib+offset per frame), e.g. to see whether a spinning thread is inside the Vulkan driver |
 
 Hardware counters and object code:
 

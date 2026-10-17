@@ -1,4 +1,4 @@
-# FourFectVK G57 v0.1.0 test builds (test1-test7)
+# FourFectVK G57 v0.1.0 test builds (test1-test8)
 
 Test builds for Winlator (Ludashi / CMOD, *Graphics Driver: Wrapper*) on the
 **Mali-G57 MC2 (Helio G99)**. Not releases: each one was made to answer one
@@ -15,6 +15,7 @@ of each build + `SHA256SUMS.txt`):
 | test5 | `0077` | Pointer audit of failed GPU jobs (`PANVK_FAULT_REPORT`), 1/s failure summary | Audit: 0 suspect addresses in LN2 and Tomb Raider; Tomb Raider: about 1000 failed chains per second, flat pale characters |
 | test6 | **new**: upstream Mesa + hafiz's rebase (`patches-upstream/0001`) + FourFectVK `0060`-`0077` (`0002`) | One kbase submit per `vkQueueSubmit`, asynchronous submission with kernel fences, forward pixel kill, multisampled storage images (from hafiz); tess/GS/XFB and the 0.1.0 fixes kept | **0 failed GPU jobs** in Tomb Raider (5 runs) and Little Nightmares II; pictures correct |
 | test7 | same as test6 | `PANVK_FRAME_PROF`: GPU busy %, process CPU %, submit / wait time per 2 s; with `PANVK_KBASE_SYNC_SUBMIT=1` the vertex vs fragment split | measuring build |
+| test8 | `0003`-`0005` | TR clip/cull off by default (`pan_disable_clip_cull_distance`), kbase `EXEC_VA` 256 MiB (`0004`), v9 timestamps (`0005`, on for `NSUNS2.exe`), `PANVK_UBO_PUSH` | TR menu 8.1-9.7 fps (9.5-12 with UBO push), DXVK 2.x 0 alloc fails, Naruto Storm 2 30 fps |
 
 sha256 (first 16 hex digits; full list in `SHA256SUMS.txt` in the release):
 
@@ -22,13 +23,13 @@ sha256 (first 16 hex digits; full list in `SHA256SUMS.txt` in the release):
 test1  4d57f2acfaa8f6e3   test5  c342fef950412bd6
 test2  ec4313ca14f9f33a   test6  551e164f91f51e7a
 test3  b1c56c68b1c79638   test7  c93f0b3a98d24edd
-test4  0363c4e21dc06d28
+test4  0363c4e21dc06d28   test8  bf1a131e23434c6c
 ```
 
 Every build: CTS regression of 7127 cases with 0 lost against the build
 before, and a Winlator-stack device check (DXVK probe, D3D11 test program on
 four DXVK versions, AIO tess/gs scenes). Evidence: `evidence/cts/phase13b`
-(test1-test2), `phase13c` (test3-test5), `phase14` (test6-test7).
+(test1-test2), `phase13c` (test3-test5), `phase14` (test6-test8).
 
 ## Switches (0 or unset = off)
 
@@ -36,6 +37,9 @@ four DXVK versions, AIO tess/gs scenes). Evidence: `evidence/cts/phase13b`
 |---|---|---|
 | `PANVK_MEM_PROF=<file>` | test1 | memory log every 2 s |
 | `PANVK_FRAME_PROF=<file>` | test7 | GPU busy / CPU / submit / wait log every 2 s |
+| `PANVK_UBO_PUSH=<words>` | test8 | push constant UBO words to FAU via GPU gather (`1` = 32 words) |
+| `PANVK_KBASE_EXEC_VA_MB=<mb>` | test8 | shader code VA zone in MiB (default 256) |
+| `PANVK_V9_TIMESTAMP=1` | test8 | write GPU timestamps in `vkCmdWriteTimestamp2` |
 | `PANVK_FAULT_REPORT=1` | test4 | what a failed GPU job carried, plus address audit (test5) |
 | `PANVK_KBASE_DEVMEM_EAGER=1` | test1 | back all memory at allocation (old) |
 | `PANVK_KBASE_HEAP_PERCENT=N` | test1 | reported heap = N % of RAM |
