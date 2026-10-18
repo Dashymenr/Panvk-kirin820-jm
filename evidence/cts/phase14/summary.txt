@@ -62,3 +62,8 @@ test7 (frame_prof/, drvM2/)
   cases after it, lost 0. drvM2 device check: 4 profiles, d3d11_tri 4/4,
   AIO gs/tess ALIVE (first attempt timed out at wine start while a build
   ran in parallel; repeated with nothing else running).
+
+test8 (patches-upstream 0003-0005, drvM17/)
+  regression_rU1_vs_rK20.txt (PANVK_UBO_PUSH=1) and regression_rE1_vs_rK20.txt
+  (0004+0005): 7127 cases, lost 0, gain 0. drvM17 device check: 4 profiles OK,
+  d3d11_tri 4/4 PASS, AIO gs/tess ALIVE.
